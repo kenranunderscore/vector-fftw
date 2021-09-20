@@ -38,7 +38,7 @@ import Data.List as L
 import Control.Concurrent.MVar
 import Control.Monad.Primitive (RealWorld,PrimMonad(..), PrimBase,
             unsafePrimToPrim, unsafePrimToIO)
-import Control.Monad(forM_)
+import qualified Control.Monad as Monad
 import Foreign (Storable(..), Ptr, FunPtr,
                 ForeignPtr, withForeignPtr, newForeignPtr)
 import Foreign.C (CInt(..), CUInt, CSize(..))
@@ -113,11 +113,11 @@ execute Plan{..} = \v -> -- fudge the arity to make sure it's always inlined
         then error $ "execute: size mismatch; expected " L.++ show n
                     L.++ ", got " L.++ show (V.length v)
         else unsafePerformIO $ do
-                        forM_ [0..n-1] $ \k -> M.unsafeWrite planInput k
+                        Monad.forM_ [0..n-1] $ \k -> M.unsafeWrite planInput k
                                                 $ V.unsafeIndex v k
                         planExecute
                         v' <- unsafeNew m
-                        forM_ [0..m-1] $ \k -> M.unsafeRead planOutput k
+                        Monad.forM_ [0..m-1] $ \k -> M.unsafeRead planOutput k
                                                 >>= M.unsafeWrite v' k
                         V.unsafeFreeze v'
   where
@@ -148,10 +148,10 @@ executeM Plan{..} = \vIn vOut ->
 
     act :: v (PrimState m) a -> v (PrimState m) b -> IO ()
     act vIn vOut = do
-            forM_ [0..n-1] $ \k -> unsafePrimToIO (M.unsafeRead vIn k :: m a)
+            Monad.forM_ [0..n-1] $ \k -> unsafePrimToIO (M.unsafeRead vIn k :: m a)
                                     >>= M.unsafeWrite planInput k
             unsafePrimToPrim planExecute
-            forM_ [0..n-1] $ \k -> M.unsafeRead planOutput k
+            Monad.forM_ [0..n-1] $ \k -> M.unsafeRead planOutput k
                                     >>= unsafePrimToIO . (M.unsafeWrite vOut k
                                                             :: b -> m ())
 {-# INLINE executeM #-}
@@ -308,7 +308,7 @@ constMultOutput !s = modifyOutput (multC s)
 
 {-# INLINE multC #-}
 multC :: (Storable a, Scalable a) => Double -> MS.MVector RealWorld a -> IO ()
-multC !s v = forM_ [0..n-1] $ \k -> unsafeModify v k (scaleByD s)
+multC !s v = Monad.forM_ [0..n-1] $ \k -> unsafeModify v k (scaleByD s)
   where !n = MS.length v
 
 -- | Helper function; seems like it should be in the vector package...
